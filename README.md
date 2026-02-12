@@ -103,7 +103,7 @@ Wait ~20 seconds for services to initialize.
 ### 3️⃣ Create Kafka Topic
 
 ```bash
-docker exec -it <kafka_container_name> bash
+docker exec -it real-time-payment-scoring-model-kafka-1 bash
 ```
 
 Inside container:
