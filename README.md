@@ -84,7 +84,7 @@ requirements.txt
 ### 1️⃣ Clone Repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/OmarKhalil2003/Real-Time-Payment-Scoring-Model
 cd Real-Time-Payment-Scoring-Model
 ```
 
@@ -307,7 +307,7 @@ For production-scale systems:
 # ✅ Deliverables Summary
 
 ✔ Complete code repository
-✔ Documentation (this README)
+✔ Documentation
 ✔ Sample Kafka producer
 ✔ MySQL schema definition
 ✔ Unit tests
