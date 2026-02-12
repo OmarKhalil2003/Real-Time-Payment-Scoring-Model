@@ -1,59 +1,57 @@
 # 💳 Real-Time Payment Scoring System
 
-## 📌 Overview
 
-This project implements a **real-time payment scoring system** that consumes transaction data from Apache Kafka, applies a pre-trained machine learning model for fraud detection, and stores the scoring results in a MySQL database.
-
-The system is designed to simulate a real-world fraud detection pipeline used in financial institutions.
 
 ---
 
-## 🎯 Objectives
+# 🎯 Objectives
 
-* Consume payment transactions from a Kafka stream in real time
-* Score each transaction using a pre-trained ML model
-* Detect fraud using both model-based and rule-based logic
-* Store results in MySQL for reporting and monitoring
-* Provide a live monitoring dashboard using Streamlit
+* Real-time transaction ingestion via Kafka
+* ML-based fraud scoring
+* Rule-based velocity detection
+* Batch persistence into MySQL
+* Live monitoring dashboard
+* Fully containerized deployment
+* Autonomous startup
 
 ---
 
-## 🏗 Architecture
+# 🏗 Architecture
 
 ```
-Kafka Producer
-      ↓
-Kafka Topic (payments)
-      ↓
-Kafka Consumer (Python)
-      ↓
-ML Model (Fraud Scoring)
-      ↓
-Velocity Check (MySQL-based)
-      ↓
-Batch Insert
-      ↓
-MySQL (scored_transactions table)
-      ↓
-Streamlit Dashboard
+Docker Compose
+│
+├── Zookeeper
+├── Kafka
+│     └── Topic: payments (auto-created)
+├── MySQL (persistent volume)
+├── Producer (Dockerized)
+│     └── Generates simulated transactions
+├── Consumer App (Dockerized)
+│     ├── Loads ML model (auto-trains if missing)
+│     ├── Applies fraud model
+│     ├── Applies velocity rule
+│     ├── Batch inserts results
+│     └── DLQ handling
+└── Streamlit Dashboard (Dockerized)
 ```
 
 ---
 
-## ⚙️ Tech Stack
+# ⚙️ Tech Stack
 
-* Python 3.10+
+* Python 3.10
 * Apache Kafka
 * MySQL 8
-* SQLAlchemy (ORM)
+* SQLAlchemy
 * Scikit-learn
 * Streamlit
 * Docker & Docker Compose
-* Pytest (Unit Testing)
+* Pytest
 
 ---
 
-## 📂 Project Structure
+# 📂 Project Structure
 
 ```
 app/
@@ -74,129 +72,27 @@ tests/
 
 dashboard.py
 docker-compose.yml
+Dockerfile
+run.ps1
 requirements.txt
 ```
 
 ---
 
-## 🚀 Setup Instructions
+# 🚀 Quick Start (Windows)
 
-### 1️⃣ Clone Repository
+### One Command Startup
 
-```bash
-git clone https://github.com/OmarKhalil2003/Real-Time-Payment-Scoring-Model
-cd Real-Time-Payment-Scoring-Model
+```powershell
+.\run.ps1
 ```
 
----
+This will:
 
-### 2️⃣ Start Infrastructure (Kafka + MySQL)
-
-```bash
-docker compose up -d
-```
-
-Wait ~20 seconds for services to initialize.
-
----
-
-### 3️⃣ Create Kafka Topic
-
-```bash
-docker exec -it <kafka_container_name> bash
-```
-
-Inside container:
-
-```bash
-kafka-topics --create \
-  --topic payments \
-  --bootstrap-server localhost:9092 \
-  --replication-factor 1 \
-  --partitions 1
-```
-
-Exit container.
-
----
-
-### 4️⃣ Create Virtual Environment
-
-```bash
-python -m venv .venv
-```
-
-Activate:
-
-Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-Mac/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-### 5️⃣ Train Dummy Model (Required Once)
-
-```bash
-python scripts/train_dummy_model.py
-```
-
-This creates:
-
-```
-model_artifacts/
-    fraud_model.pkl
-    scaler.pkl
-```
-
----
-
-### 6️⃣ Run Real-Time Scoring Service
-
-```bash
-python -m app.main
-```
-
-You should see:
-
-```
-Real-Time Payment Scoring Started
-```
-
----
-
-### 7️⃣ Send Sample Transactions
-
-In another terminal:
-
-```bash
-python scripts/sample_producer.py
-```
-
-Transactions will now be scored and stored in MySQL.
-
----
-
-### 8️⃣ Run Monitoring Dashboard
-
-```bash
-streamlit run dashboard.py
-```
-
-Open:
+* Build Docker images
+* Start all services
+* Wait until dashboard is ready
+* Automatically open browser at:
 
 ```
 http://localhost:8501
@@ -204,7 +100,41 @@ http://localhost:8501
 
 ---
 
-## 🗄 MySQL Schema
+# 🚀 Quick Start (Manual)
+
+```bash
+docker compose up --build -d
+```
+
+Then open:
+
+```
+http://localhost:8501
+```
+
+That’s it.
+
+No additional setup required.
+
+---
+
+# 🧠 Autonomous Features
+
+The system automatically:
+
+* Creates Kafka topic (`payments`)
+* Trains ML model if not found
+* Waits for MySQL readiness
+* Applies batch insert optimization
+* Starts producer traffic generation
+* Starts consumer scoring
+* Launches dashboard
+
+Fully self-initializing.
+
+---
+
+# 🗄 MySQL Schema
 
 ```sql
 CREATE TABLE scored_transactions (
@@ -224,21 +154,19 @@ CREATE TABLE scored_transactions (
 
 ---
 
-## 📊 Fraud Logic
+# 📊 Fraud Detection Logic
 
-The system combines:
-
-### 1️⃣ ML-Based Detection
+### 1️⃣ Machine Learning
 
 * RandomForest classifier
 * Probability-based fraud scoring
 
-### 2️⃣ Velocity-Based Rule
+### 2️⃣ Velocity Rule
 
-* Counts recent transactions per customer
-* Flags suspicious burst behavior
+* Detects burst transactions per customer
+* Enhances fraud detection reliability
 
-### 3️⃣ Business Status Classification
+### 3️⃣ Status Classification
 
 * APPROVED
 * REVIEW
@@ -246,17 +174,43 @@ The system combines:
 
 ---
 
-## 📈 Dashboard Features
+# 📈 Dashboard Features
 
-* Fraud rate monitoring
-* Fraud-over-time chart
-* Customer risk profile
-* Auto-refresh capability
-* Latest transaction viewer
+* Lifetime fraud counters
+* Fraud rate calculation
+* Fraud-over-time visualization
+* Customer-level risk profile
+* Latest transactions view
+* Auto-refresh support
+
+Metrics use full-table aggregation.
+Charts use recent 1000-transaction window.
 
 ---
 
-## 🧪 Running Tests
+# ⚡ Performance Optimizations
+
+* Indexed MySQL columns
+* Batch insert using bulk mappings
+* Persistent database volume
+* Cached dashboard queries
+* Structured logging
+* Idempotent transaction constraint
+* Graceful shutdown flush
+
+---
+
+# 🔒 Reliability Features
+
+* Dead Letter Queue (DLQ)
+* Unique transaction ID constraint
+* Schema validation
+* Retry logic for MySQL readiness
+* Automatic model training fallback
+
+---
+
+# 🧪 Running Tests
 
 ```bash
 pytest
@@ -270,47 +224,36 @@ Expected output:
 
 ---
 
-## ⚡ Performance Optimizations
+# 🏁 System Characteristics
 
-* Indexed database columns
-* Batch insert (bulk insert mappings)
-* Idempotent transaction handling
-* Graceful shutdown flush
-* Structured logging
-
----
-
-## 🔒 Reliability Features
-
-* Dead Letter Queue (DLQ) handling
-* Unique transaction constraint
-* Schema validation with Pydantic
-* Exception handling and logging
-
----
-
-## 📈 Scalability Considerations
-
-For production-scale systems:
-
-* Redis-based velocity detection
-* Kafka partition scaling
-* Horizontal consumer scaling
-* Connection pooling tuning
-* Kubernetes deployment
-* MLflow model registry
-* Exactly-once processing guarantees
-
+| Feature                       | Status             |
+| ----------------------------- | ------------------ |
+| Fully Dockerized              | ✅                  |
+| Autonomous Startup            | ✅                  |
+| Live Traffic Simulation       | ✅                  |
+| Persistent Database           | ✅                  |
+| Batch Optimization            | ✅                  |
+| Monitoring Dashboard          | ✅                  |
+| Unit Tests                    | ✅                  |
 
 ---
 
 # ✅ Deliverables Summary
 
-✔ Complete code repository
-✔ Documentation
-✔ Sample Kafka producer
-✔ MySQL schema definition
-✔ Unit tests
-✔ Live monitoring UI
+✔ Complete Dockerized system \
+✔ Autonomous startup script \
+✔ Real-time streaming pipeline \
+✔ Machine learning scoring \
+✔ MySQL persistence \
+✔ Live monitoring dashboard \
+✔ Unit tests \
+✔ Professional documentation
 
 ---
+
+# 👤 Author
+
+Omar Khalil \
+omark8977@gmail.com
+---
+

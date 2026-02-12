@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment:
@@ -14,8 +13,9 @@ services:
       - "9092:9092"
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
   mysql:
     image: mysql:8.0
@@ -24,3 +24,49 @@ services:
       MYSQL_DATABASE: payment_scoring
     ports:
       - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    build: .
+    depends_on:
+      - kafka
+      - mysql
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: payments
+      KAFKA_GROUP_ID: payment-scoring-group
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: payment_scoring
+    volumes:
+      - ./model_artifacts:/app/model_artifacts
+    command: python -m app.main
+
+  producer:
+    build: .
+    depends_on:
+      - kafka
+      - app
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    command: python scripts/sample_producer.py
+
+  dashboard:
+    build: .
+    depends_on:
+      - mysql
+    ports:
+      - "8501:8501"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: payment_scoring
+    command: [ "bash", "start_dashboard.sh" ]
+
+volumes:
+  mysql_data:

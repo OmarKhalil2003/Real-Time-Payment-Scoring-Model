@@ -8,3 +8,7 @@ scikit-learn==1.3.2
 cryptography
 pytest==8.0.0
 streamlit==1.32.0
+confluent-kafka
+redis
+
+
