@@ -1,9 +1,0 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-pymysql
-pydantic
-python-dotenv
-confluent-kafka
-scikit-learn
-joblib
