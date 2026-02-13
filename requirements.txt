@@ -10,5 +10,6 @@ pytest==8.0.0
 streamlit==1.32.0
 confluent-kafka
 redis
+pydantic-settings==2.1.0
 
 
