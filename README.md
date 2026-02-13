@@ -1,18 +1,21 @@
-# 💳 Real-Time Payment Scoring System
 
+---
 
+# 💳 Real-Time Payment Fraud Scoring System
+
+A fully containerized, autonomous, real-time fraud detection pipeline built using Kafka, Machine Learning, MySQL, and Streamlit.
 
 ---
 
 # 🎯 Objectives
 
 * Real-time transaction ingestion via Kafka
-* ML-based fraud scoring
+* Machine learning–based fraud scoring
 * Rule-based velocity detection
-* Batch persistence into MySQL
-* Live monitoring dashboard
+* High-performance batch persistence into MySQL
+* Live monitoring dashboard with real-time metrics
 * Fully containerized deployment
-* Autonomous startup
+* Autonomous system
 
 ---
 
@@ -25,15 +28,24 @@ Docker Compose
 ├── Kafka
 │     └── Topic: payments (auto-created)
 ├── MySQL (persistent volume)
+│
 ├── Producer (Dockerized)
-│     └── Generates simulated transactions
+│     └── Generates simulated transactions continuously
+│
 ├── Consumer App (Dockerized)
-│     ├── Loads ML model (auto-trains if missing)
+│     ├── Auto-trains ML model if missing
 │     ├── Applies fraud model
 │     ├── Applies velocity rule
-│     ├── Batch inserts results
-│     └── DLQ handling
+│     ├── Batch inserts scored results
+│     ├── Handles DLQ
+│     └── Ensures idempotency
+│
 └── Streamlit Dashboard (Dockerized)
+      ├── Lifetime fraud metrics
+      ├── Throughput monitoring
+      ├── Risk score distribution (Plotly)
+      ├── Fraud-over-time visualization
+      └── Customer-level risk profiling
 ```
 
 ---
@@ -44,8 +56,9 @@ Docker Compose
 * Apache Kafka
 * MySQL 8
 * SQLAlchemy
-* Scikit-learn
+* Scikit-learn (RandomForest)
 * Streamlit
+* Plotly
 * Docker & Docker Compose
 * Pytest
 
@@ -78,10 +91,9 @@ requirements.txt
 
 ---
 
+# 🚀 Quick Start
 
-
-
-# 🚀 Quick Start 
+Clone the repository and run:
 
 ```bash
 docker compose up --build -d
@@ -95,7 +107,11 @@ http://localhost:8501
 
 That’s it.
 
-No additional setup required.
+No virtual environments.
+No manual Kafka topic creation.
+No manual model training.
+
+The system is fully autonomous.
 
 ---
 
@@ -103,15 +119,15 @@ No additional setup required.
 
 The system automatically:
 
-* Creates Kafka topic (`payments`)
-* Trains ML model if not found
+* Auto-creates Kafka topic (`payments`)
+* Auto-trains ML model if not found
 * Waits for MySQL readiness
 * Applies batch insert optimization
 * Starts producer traffic generation
 * Starts consumer scoring
 * Launches dashboard
+* Handles retry logic and DLQ
 
-Fully self-initializing.
 
 ---
 
@@ -133,61 +149,69 @@ CREATE TABLE scored_transactions (
 );
 ```
 
+Indexed for high-throughput inserts and analytical queries.
+
 ---
 
 # 📊 Fraud Detection Logic
 
-### 1️⃣ Machine Learning
+### 1️⃣ Machine Learning Layer
 
 * RandomForest classifier
-* Probability-based fraud scoring
+* Probability-based scoring
+* Adjustable fraud threshold
 
-### 2️⃣ Velocity Rule
+### 2️⃣ Velocity Rule Layer
 
-* Detects burst transactions per customer
-* Enhances fraud detection reliability
+* Detects burst transactions per customer (last 60 seconds)
+* Elevates risk when threshold exceeded
+* Prevents rapid-attack fraud patterns
 
 ### 3️⃣ Status Classification
 
-* APPROVED
-* REVIEW
-* DECLINED
+| Condition               | Status   |
+| ----------------------- | -------- |
+| High confidence fraud   | DECLINED |
+| Medium confidence fraud | REVIEW   |
+| Low risk                | APPROVED |
 
 ---
 
 # 📈 Dashboard Features
 
-* Lifetime fraud counters
-* Fraud rate calculation
+* Lifetime fraud counters 
+* Fraud rate monitoring
+* Transactions per minute
+* Fraud spike alert detection
+* Risk score distribution
 * Fraud-over-time visualization
-* Customer-level risk profile
-* Latest transactions view
-* Auto-refresh support
-
-Metrics use full-table aggregation.
-Charts use recent 1000-transaction window.
+* Customer-level lifetime risk profile
+* Recent transaction window (last 500)
+* Adjustable auto-refresh (1–5 seconds)
 
 ---
 
 # ⚡ Performance Optimizations
 
 * Indexed MySQL columns
-* Batch insert using bulk mappings
-* Persistent database volume
-* Cached dashboard queries
+* Bulk insert using SQLAlchemy mappings
+* Producer batching (`linger.ms`, `batch.num.messages`)
+* Persistent MySQL Docker volume
+* Connection pooling (`pool_pre_ping`)
+* Cached lifetime metrics (TTL-based)
 * Structured logging
 * Idempotent transaction constraint
-* Graceful shutdown flush
 
 ---
 
-# 🔒 Reliability Features
+# 🔒 Reliability & Safety Features
 
 * Dead Letter Queue (DLQ)
 * Unique transaction ID constraint
-* Schema validation
+* Pydantic schema validation
 * Retry logic for MySQL readiness
 * Automatic model training fallback
+* Kafka consumer group handling
 
 ---
 
@@ -203,29 +227,36 @@ Expected output:
 2 passed
 ```
 
+Tests cover:
+
+* Predictor correctness
+* Status classification logic
+
 ---
 
 # 🏁 System Characteristics
 
-| Feature                       | Status             |
-| ----------------------------- | ------------------ |
-| Fully Dockerized              | ✅                  |
-| Autonomous Startup            | ✅                  |
-| Live Traffic Simulation       | ✅                  |
-| Persistent Database           | ✅                  |
-| Batch Optimization            | ✅                  |
-| Monitoring Dashboard          | ✅                  |
-| Unit Tests                    | ✅                  |
+| Feature                         | Status |
+| ------------------------------- | ------ |
+| Fully Dockerized                | ✅      |
+| Autonomous Startup              | ✅      |
+| Live Traffic Simulation         | ✅      |
+| Persistent Database Volume      | ✅      |
+| Batch Optimization              | ✅      |
+| Real-Time Throughput Monitoring | ✅      |
+| Plotly Analytics Dashboard      | ✅      |
+| Velocity Fraud Detection        | ✅      |
+| Unit Tests                      | ✅      |
 
 ---
 
-# ✅ Deliverables Summary
+# 📦 Expected Deliverables Included
 
-✔ Complete Dockerized system \
-✔ Autonomous startup script \
-✔ Real-time streaming pipeline \
-✔ Machine learning scoring \
-✔ MySQL persistence \
+✔ Sample Kafka producer \
+✔ MySQL schema definition \
+✔ Fully containerized system \
+✔ Autonomous infrastructure startup \
+✔ Real-time ML fraud scoring \
 ✔ Live monitoring dashboard \
 ✔ Unit tests \
 ✔ Professional documentation
@@ -235,6 +266,6 @@ Expected output:
 # 👤 Author
 
 Omar Khalil \
-omark8977@gmail.com
----
+[omark8977@gmail.com](mailto:omark8977@gmail.com)
 
+---

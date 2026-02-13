@@ -2,18 +2,24 @@ import logging
 from app.kafka.schema import PaymentTransaction
 from app.database.repository import TransactionRepository
 
-VELOCITY_THRESHOLD = 5
+# More realistic threshold
+VELOCITY_THRESHOLD = 12  # 12 transactions in 60 seconds
+
 logger = logging.getLogger("scoring-service")
+
 
 class ScoringService:
 
     def __init__(self, predictor):
         self.predictor = predictor
 
-    def determine_status(self, score, prediction):
-        if prediction == 1 and score > 0.9:
+    def determine_status(self, score):
+        """
+        Balanced classification thresholds
+        """
+        if score >= 0.85:
             return "DECLINED"
-        elif prediction == 1:
+        elif score >= 0.65:
             return "REVIEW"
         else:
             return "APPROVED"
@@ -29,19 +35,25 @@ class ScoringService:
 
         score, prediction = self.predictor.predict(features)
 
+        # ----------------------------
+        # Velocity Rule (Soft Impact)
+        # ----------------------------
         recent_count = TransactionRepository.count_recent_transactions(
             transaction.customer_id,
             seconds=60
         )
 
         if recent_count >= VELOCITY_THRESHOLD:
-            prediction = 1
-            score = max(score, 0.95)
             logger.warning(
-                f"Velocity fraud detected for customer {transaction.customer_id}"
+                f"Velocity alert for customer {transaction.customer_id}"
             )
 
-        status = self.determine_status(score, prediction)
+            # Instead of forcing 0.95 (which causes mass DECLINES),
+            # slightly increase risk
+            score = min(score + 0.1, 0.95)
+
+        # Determine status based on final score only
+        status = self.determine_status(score)
 
         logger.info(
             f"Transaction {transaction.transaction_id} | "

@@ -16,7 +16,7 @@ producer = Producer({
 CUSTOMER_POOL = [f"CUST_{i}" for i in range(1, 201)]
 
 def generate_transaction():
-    is_fraud = random.random() < 0.15
+    is_fraud = random.random() < 0.03
 
     return {
         "transaction_id": str(uuid.uuid4()),

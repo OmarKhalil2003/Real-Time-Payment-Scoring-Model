@@ -4,6 +4,9 @@ import time
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import OperationalError
 from app.config.settings import settings
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
 
 # -----------------------------------
 # Database Connection
@@ -33,6 +36,7 @@ refresh_interval = st.sidebar.slider(
     max_value=5,
     value=3
 )
+
 customer_filter = st.sidebar.text_input("Customer ID (optional)")
 
 # -----------------------------------
@@ -77,6 +81,15 @@ def load_lifetime_totals():
     return pd.read_sql(query, engine)
 
 
+def load_throughput():
+    query = """
+        SELECT COUNT(*) as tx_last_min
+        FROM scored_transactions
+        WHERE created_at >= NOW() - INTERVAL 1 MINUTE
+    """
+    return pd.read_sql(query, engine)
+
+
 def load_customer_lifetime(customer_id):
     query = text("""
         SELECT 
@@ -86,12 +99,8 @@ def load_customer_lifetime(customer_id):
         FROM scored_transactions
         WHERE customer_id = :customer_id
     """)
+    return pd.read_sql(query, engine, params={"customer_id": customer_id})
 
-    return pd.read_sql(
-        query,
-        engine,
-        params={"customer_id": customer_id}
-    )
 
 # -----------------------------------
 # Load Data
@@ -99,29 +108,102 @@ def load_customer_lifetime(customer_id):
 
 df = load_recent_data()
 totals = load_lifetime_totals()
+throughput_df = load_throughput()
 
 if totals.empty:
     st.warning("No transactions available yet.")
     st.stop()
 
 # -----------------------------------
-# Lifetime Metrics
+# System Metrics Section
 # -----------------------------------
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 declined = int(totals.loc[totals["status"] == "DECLINED", "total"].sum())
 review = int(totals.loc[totals["status"] == "REVIEW", "total"].sum())
 approved = int(totals.loc[totals["status"] == "APPROVED", "total"].sum())
+tpm = int(throughput_df["tx_last_min"].iloc[0])
 
 col1.metric("DECLINED", declined)
 col2.metric("REVIEW", review)
 col3.metric("APPROVED", approved)
+col4.metric("Transactions / Min", tpm)
 
 total_all = declined + review + approved
 fraud_rate = (declined / total_all) * 100 if total_all > 0 else 0
 
 st.metric("Fraud Rate (%) - Lifetime", f"{fraud_rate:.2f}%")
+
+# Fraud spike alert
+if fraud_rate > 20:
+    st.error("⚠️ High Fraud Rate Detected!")
+
+st.divider()
+
+# -----------------------------------
+# Status Distribution
+# -----------------------------------
+
+st.subheader("📊 Status Distribution")
+
+if not totals.empty:
+    fig_status = px.bar(
+        totals,
+        x="status",
+        y="total",
+        color="status",
+        title="Transaction Status Distribution",
+        text="total"
+    )
+
+    fig_status.update_layout(
+        xaxis_title="Status",
+        yaxis_title="Count",
+        showlegend=False
+    )
+
+    st.plotly_chart(fig_status, use_container_width=True)
+
+st.divider()
+
+# -----------------------------------
+# Risk Score Distribution
+# -----------------------------------
+
+st.subheader("📈 Risk Score Distribution (Recent 500)")
+
+if not df.empty:
+
+    fig_hist = px.histogram(
+        df,
+        x="score",
+        nbins=20,
+        title="Risk Score Distribution",
+        opacity=0.8
+    )
+
+    fig_hist.update_layout(
+        xaxis_title="Risk Score",
+        yaxis_title="Transaction Count",
+        bargap=0.05
+    )
+
+    # Optional: add threshold line (example 0.8)
+    fig_hist.add_vline(
+        x=0.8,
+        line_dash="dash",
+        line_color="red",
+        annotation_text="High Risk Threshold",
+        annotation_position="top"
+    )
+
+    st.plotly_chart(fig_hist, use_container_width=True)
+
+else:
+    st.info("Waiting for transactions...")
+
+
 
 st.divider()
 
@@ -129,9 +211,10 @@ st.divider()
 # Fraud Over Time
 # -----------------------------------
 
-st.subheader("📈 Fraud Over Time (Last 500 Transactions)")
+st.subheader("📉 Fraud Over Time (Last 500)")
 
 if not df.empty:
+
     df_time = df.copy()
     df_time["minute"] = df_time["created_at"].dt.floor("min")
 
@@ -143,11 +226,28 @@ if not df.empty:
     )
 
     if not fraud_over_time.empty:
-        st.line_chart(fraud_over_time.set_index("minute"))
+
+        fig_line = px.line(
+            fraud_over_time,
+            x="minute",
+            y="fraud_count",
+            markers=True,
+            title="Fraud Transactions Over Time"
+        )
+
+        fig_line.update_layout(
+            xaxis_title="Time",
+            yaxis_title="Fraud Count"
+        )
+
+        st.plotly_chart(fig_line, use_container_width=True)
+
     else:
         st.info("No fraud activity in recent window.")
+
 else:
     st.info("Waiting for transactions...")
+
 
 st.divider()
 
@@ -166,11 +266,11 @@ if customer_filter:
         fraud_tx = int(lifetime_df["fraud_tx"].iloc[0] or 0)
         avg_score = float(lifetime_df["avg_score"].iloc[0] or 0)
 
-        st.write(f"Lifetime Transactions: {total_tx}")
-        st.write(f"Lifetime Fraud Transactions: {fraud_tx}")
-        st.write(f"Lifetime Average Risk Score: {avg_score:.4f}")
+        colA, colB, colC = st.columns(3)
+        colA.metric("Lifetime Transactions", total_tx)
+        colB.metric("Lifetime Fraud Transactions", fraud_tx)
+        colC.metric("Lifetime Avg Risk Score", f"{avg_score:.4f}")
 
-        # Show recent transactions separately
         recent_customer_df = df[df["customer_id"] == customer_filter]
 
         st.dataframe(
