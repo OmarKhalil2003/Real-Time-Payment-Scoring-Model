@@ -105,7 +105,7 @@ if totals.empty:
     st.stop()
 
 # -----------------------------------
-# Lifetime Metrics (Never Decrease)
+# Lifetime Metrics
 # -----------------------------------
 
 col1, col2, col3 = st.columns(3)
@@ -126,7 +126,7 @@ st.metric("Fraud Rate (%) - Lifetime", f"{fraud_rate:.2f}%")
 st.divider()
 
 # -----------------------------------
-# Fraud Over Time (Recent Window)
+# Fraud Over Time
 # -----------------------------------
 
 st.subheader("📈 Fraud Over Time (Last 500 Transactions)")
@@ -152,7 +152,7 @@ else:
 st.divider()
 
 # -----------------------------------
-# Customer Risk Profile (Lifetime Stable)
+# Customer Risk Profile
 # -----------------------------------
 
 st.subheader("👤 Customer Risk Profile")
@@ -186,7 +186,7 @@ else:
 st.divider()
 
 # -----------------------------------
-# Latest Transactions (Recent Window)
+# Latest Transactions
 # -----------------------------------
 
 st.subheader("Latest Transactions (Last 500)")
