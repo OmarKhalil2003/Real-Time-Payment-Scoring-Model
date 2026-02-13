@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine
-from datetime import datetime
 from app.config.settings import settings
 import time
+from sqlalchemy import inspect
+from sqlalchemy.exc import OperationalError
 
 # -----------------------------------
 # Database Connection
@@ -27,14 +28,26 @@ st.title("💳 Real-Time Payment Scoring Dashboard")
 st.sidebar.header("Controls")
 
 auto_refresh = st.sidebar.checkbox("Enable Auto Refresh", value=True)
-refresh_interval = st.sidebar.slider("Refresh Interval (seconds)", 2, 15, 5)
+refresh_interval = st.sidebar.slider("Refresh Interval (seconds)", 1, 15, 3)
 customer_filter = st.sidebar.text_input("Customer ID (optional)")
 
+
+def table_exists(table_name):
+    try:
+        inspector = inspect(engine)
+        return table_name in inspector.get_table_names()
+    except OperationalError:
+        return False
+
+# Wait until table exists
+if not table_exists("scored_transactions"):
+    st.warning("Waiting for scoring service to initialize database...")
+    st.stop()
+
 # -----------------------------------
-# Data Loaders
+# Data Loaders (NO CACHING)
 # -----------------------------------
 
-@st.cache_data(ttl=5)
 def load_recent_data():
     query = """
         SELECT * 
@@ -43,86 +56,92 @@ def load_recent_data():
         LIMIT 1000
     """
     df = pd.read_sql(query, engine)
-    df["created_at"] = pd.to_datetime(df["created_at"])
+    if not df.empty:
+        df["created_at"] = pd.to_datetime(df["created_at"])
     return df
 
 
-@st.cache_data(ttl=5)
-def load_totals():
+def load_lifetime_totals():
     query = """
         SELECT status, COUNT(*) as total
         FROM scored_transactions
         GROUP BY status
     """
-    df_totals = pd.read_sql(query, engine)
-    return df_totals
+    return pd.read_sql(query, engine)
 
 
-# Load data
+# -----------------------------------
+# Load Data
+# -----------------------------------
+
 df = load_recent_data()
-totals = load_totals()
+totals = load_lifetime_totals()
 
-if df.empty:
+if totals.empty:
     st.warning("No transactions available yet.")
     st.stop()
 
 # -----------------------------------
-# Lifetime Metrics Section
+# Lifetime Metrics (NEVER DECREASE)
 # -----------------------------------
 
 col1, col2, col3 = st.columns(3)
 
-declined = totals.loc[totals["status"] == "DECLINED", "total"].sum()
-review = totals.loc[totals["status"] == "REVIEW", "total"].sum()
-approved = totals.loc[totals["status"] == "APPROVED", "total"].sum()
+declined = int(totals.loc[totals["status"] == "DECLINED", "total"].sum())
+review = int(totals.loc[totals["status"] == "REVIEW", "total"].sum())
+approved = int(totals.loc[totals["status"] == "APPROVED", "total"].sum())
 
-col1.metric("DECLINED", int(declined))
-col2.metric("REVIEW", int(review))
-col3.metric("APPROVED", int(approved))
+col1.metric("DECLINED (All-Time)", declined)
+col2.metric("REVIEW (All-Time)", review)
+col3.metric("APPROVED (All-Time)", approved)
 
 total_all = declined + review + approved
 fraud_rate = (declined / total_all) * 100 if total_all > 0 else 0
-st.metric("Fraud Rate (%)", f"{fraud_rate:.2f}%")
+
+st.metric("Fraud Rate (%) - Lifetime", f"{fraud_rate:.2f}%")
 
 st.divider()
 
 # -----------------------------------
-# Apply Customer Filter (Recent Data Only)
+# Apply Customer Filter (Recent Only)
 # -----------------------------------
 
-if customer_filter:
+if not df.empty and customer_filter:
     df = df[df["customer_id"] == customer_filter]
 
 # -----------------------------------
-# 📈 Fraud Over Time Chart (Recent Window)
+# Fraud Over Time (Recent Window)
 # -----------------------------------
 
 st.subheader("📈 Fraud Over Time (Last 1000 Transactions)")
 
-df_time = df.copy()
-df_time["minute"] = df_time["created_at"].dt.floor("min")
+if not df.empty:
+    df_time = df.copy()
+    df_time["minute"] = df_time["created_at"].dt.floor("min")
 
-fraud_over_time = (
-    df_time[df_time["status"] == "DECLINED"]
-    .groupby("minute")
-    .size()
-    .reset_index(name="fraud_count")
-)
+    fraud_over_time = (
+        df_time[df_time["status"] == "DECLINED"]
+        .groupby("minute")
+        .size()
+        .reset_index(name="fraud_count")
+    )
 
-if not fraud_over_time.empty:
-    st.line_chart(fraud_over_time.set_index("minute"))
+    if not fraud_over_time.empty:
+        st.line_chart(fraud_over_time.set_index("minute"))
+    else:
+        st.info("No fraud activity in recent window.")
 else:
-    st.info("No fraud activity yet in recent transactions.")
+    st.info("Waiting for transactions...")
 
 st.divider()
 
 # -----------------------------------
-# 👤 Customer Risk Profile
+# Customer Risk Profile
 # -----------------------------------
 
 st.subheader("👤 Customer Risk Profile")
 
-if customer_filter:
+if customer_filter and not df.empty:
     total_tx = df.shape[0]
     fraud_tx = df[df["status"] == "DECLINED"].shape[0]
     avg_score = df["score"].mean() if not df.empty else 0
@@ -135,23 +154,29 @@ if customer_filter:
         df.sort_values("created_at", ascending=False).head(20),
         use_container_width=True
     )
+elif customer_filter:
+    st.warning("No recent transactions for this customer.")
 else:
     st.info("Enter a Customer ID in sidebar to view profile.")
 
 st.divider()
 
 # -----------------------------------
-# Latest Transactions (Recent Window)
+# Latest Transactions
 # -----------------------------------
 
 st.subheader("Latest Transactions (Last 1000)")
-st.dataframe(
-    df.sort_values("created_at", ascending=False).head(50),
-    use_container_width=True
-)
+
+if not df.empty:
+    st.dataframe(
+        df.sort_values("created_at", ascending=False).head(50),
+        use_container_width=True
+    )
+else:
+    st.info("No transactions yet.")
 
 # -----------------------------------
-# 🔄 Auto Refresh
+# Auto Refresh
 # -----------------------------------
 
 if auto_refresh:

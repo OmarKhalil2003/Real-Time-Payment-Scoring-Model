@@ -7,7 +7,11 @@ from confluent_kafka import Producer
 
 KAFKA_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 
-producer = Producer({"bootstrap.servers": KAFKA_SERVER})
+producer = Producer({
+    "bootstrap.servers": KAFKA_SERVER,
+    "linger.ms": 5,              # allow batching
+    "batch.num.messages": 1000   # improve throughput
+})
 
 CUSTOMER_POOL = [f"CUST_{i}" for i in range(1, 201)]
 
@@ -25,11 +29,27 @@ def generate_transaction():
 
 def run_producer():
     print("🚀 Producer started...")
-    while True:
-        data = generate_transaction()
-        producer.produce("payments", value=json.dumps(data))
+    count = 0
+
+    try:
+        while True:
+            data = generate_transaction()
+
+            producer.produce("payments", value=json.dumps(data))
+            producer.poll(0)
+
+            count += 1
+            if count % 100 == 0:
+                print(f"Produced {count} transactions")
+
+            time.sleep(0.5)
+
+    except KeyboardInterrupt:
+        print("Stopping producer...")
+    finally:
         producer.flush()
-        time.sleep(0.1)
+
+
 
 if __name__ == "__main__":
     run_producer()
