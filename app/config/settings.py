@@ -1,20 +1,23 @@
 import os
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
-load_dotenv()
 
-class Settings:
-    KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
-    KAFKA_TOPIC = os.getenv("KAFKA_TOPIC")
-    KAFKA_GROUP_ID = os.getenv("KAFKA_GROUP_ID")
+class Settings(BaseSettings):
+    KAFKA_BOOTSTRAP_SERVERS: str = "kafka:9092"
+    KAFKA_TOPIC: str = "payments"
+    KAFKA_GROUP_ID: str = "payment-scoring-group"
 
-    MYSQL_HOST = os.getenv("MYSQL_HOST")
-    MYSQL_PORT = os.getenv("MYSQL_PORT")
-    MYSQL_USER = os.getenv("MYSQL_USER")
-    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-    MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
+    MYSQL_HOST: str = "mysql"
+    MYSQL_PORT: int = 3306
+    MYSQL_USER: str = "root"
+    MYSQL_PASSWORD: str = "password"
+    MYSQL_DATABASE: str = "payment_scoring"
 
-    MODEL_PATH = os.getenv("MODEL_PATH")
-    SCALER_PATH = os.getenv("SCALER_PATH")
+    MODEL_PATH: str = "model_artifacts/fraud_model.pkl"
+    SCALER_PATH: str = "model_artifacts/scaler.pkl"
+
+    class Config:
+        env_file = ".env"
+
 
 settings = Settings()
