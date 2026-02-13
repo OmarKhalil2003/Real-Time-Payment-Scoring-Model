@@ -42,12 +42,10 @@ def run_producer():
             if count % 100 == 0:
                 print(f"Produced {count} transactions")
 
-            time.sleep(0.5)
+            time.sleep(0.01)
 
     except KeyboardInterrupt:
         print("Stopping producer...")
-    finally:
-        producer.flush()
 
 
 
