@@ -1,9 +1,6 @@
-
----
-
 # 💳 Real-Time Payment Scoring System
 
-A fully containerized, real-time fraud detection pipeline simulating payment scoring system.
+
 
 ---
 
@@ -15,7 +12,7 @@ A fully containerized, real-time fraud detection pipeline simulating payment sco
 * Batch persistence into MySQL
 * Live monitoring dashboard
 * Fully containerized deployment
-* Autonomous startup 
+* Autonomous startup
 
 ---
 
@@ -81,7 +78,10 @@ requirements.txt
 
 ---
 
-# 🚀 Quick Start
+
+
+
+# 🚀 Quick Start 
 
 ```bash
 docker compose up --build -d
@@ -93,51 +93,25 @@ Then open:
 http://localhost:8501
 ```
 
-No `.env` file required. \
-No manual Kafka topic creation. \
-No manual database setup. \
-Fully autonomous.
+That’s it.
+
+No additional setup required.
 
 ---
 
-# 🧠 Autonomous System Behavior
+# 🧠 Autonomous Features
 
-On startup, the system automatically:
+The system automatically:
 
 * Creates Kafka topic (`payments`)
+* Trains ML model if not found
 * Waits for MySQL readiness
-* Trains ML model if artifacts are missing
-* Loads model & scaler
+* Applies batch insert optimization
 * Starts producer traffic generation
-* Starts consumer scoring loop
-* Batch inserts into MySQL
-* Launches Streamlit dashboard
+* Starts consumer scoring
+* Launches dashboard
 
-
----
-
-# 🧪 Test Data
-
-## 📩 Sample Kafka Message
-
-The producer generates messages in the following format:
-
-```json
-{
-  "transaction_id": "550e8400-e29b-41d4-a716-446655440000",
-  "customer_id": "CUST_148",
-  "amount": 320.55,
-  "feature_1": 0.42,
-  "feature_2": 0.37,
-  "feature_3": 0.29
-}
-```
-
-Fraud simulation logic:
-
-* ~15% high-risk transactions
-* Higher amounts
-* Higher feature values
+Fully self-initializing.
 
 ---
 
@@ -167,13 +141,11 @@ CREATE TABLE scored_transactions (
 
 * RandomForest classifier
 * Probability-based fraud scoring
-* Scaler preprocessing
 
 ### 2️⃣ Velocity Rule
 
-* Detects rapid burst transactions per customer
+* Detects burst transactions per customer
 * Enhances fraud detection reliability
-* Combines rule-based + ML logic
 
 ### 3️⃣ Status Classification
 
@@ -185,15 +157,15 @@ CREATE TABLE scored_transactions (
 
 # 📈 Dashboard Features
 
-* Lifetime fraud counters 
-* Fraud rate calculation 
-* Fraud-over-time visualization (recent 500 window)
-* Customer lifetime risk profile
+* Lifetime fraud counters
+* Fraud rate calculation
+* Fraud-over-time visualization
+* Customer-level risk profile
 * Latest transactions view
-* Adjustable auto-refresh (1–5 seconds)
+* Auto-refresh support
 
-Metrics use full-table aggregation. \
-Charts use recent transaction window for performance.
+Metrics use full-table aggregation.
+Charts use recent 1000-transaction window.
 
 ---
 
@@ -202,10 +174,10 @@ Charts use recent transaction window for performance.
 * Indexed MySQL columns
 * Batch insert using bulk mappings
 * Persistent database volume
-* Efficient producer batching
-* Consumer offset tracking
+* Cached dashboard queries
 * Structured logging
 * Idempotent transaction constraint
+* Graceful shutdown flush
 
 ---
 
@@ -216,7 +188,6 @@ Charts use recent transaction window for performance.
 * Schema validation
 * Retry logic for MySQL readiness
 * Automatic model training fallback
-* Kafka consumer group offset management
 
 ---
 
@@ -236,36 +207,34 @@ Expected output:
 
 # 🏁 System Characteristics
 
-| Feature                       | Status |
-| ----------------------------- | ------ |
-| Fully Dockerized              | ✅      |
-| Autonomous Startup            | ✅      |
-| Live Traffic Simulation       | ✅      |
-| Persistent Database           | ✅      |
-| Batch Optimization            | ✅      |
-| Monitoring Dashboard          | ✅      |
-| Unit Tests                    | ✅      |
+| Feature                       | Status             |
+| ----------------------------- | ------------------ |
+| Fully Dockerized              | ✅                  |
+| Autonomous Startup            | ✅                  |
+| Live Traffic Simulation       | ✅                  |
+| Persistent Database           | ✅                  |
+| Batch Optimization            | ✅                  |
+| Monitoring Dashboard          | ✅                  |
+| Unit Tests                    | ✅                  |
 
 ---
 
 # ✅ Deliverables Summary
 
 ✔ Complete Dockerized system \
-✔ Autonomous startup \
-✔ Real-time Kafka streaming pipeline \
-✔ Machine learning fraud scoring \
-✔ MySQL persistence layer \
-✔ Sample Kafka test data \
-✔ MySQL schema definition \
+✔ Autonomous startup script \
+✔ Real-time streaming pipeline \
+✔ Machine learning scoring \
+✔ MySQL persistence \
 ✔ Live monitoring dashboard \
 ✔ Unit tests \
-✔ Professional documentation \
+✔ Professional documentation
 
 ---
 
 # 👤 Author
 
 Omar Khalil \
-[omark8977@gmail.com](mailto:omark8977@gmail.com)
-
+omark8977@gmail.com
 ---
+
