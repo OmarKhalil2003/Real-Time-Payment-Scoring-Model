@@ -73,34 +73,15 @@ tests/
 dashboard.py
 docker-compose.yml
 Dockerfile
-run.ps1
 requirements.txt
 ```
 
 ---
 
-# 🚀 Quick Start (Windows)
 
-### One Command Startup
 
-```powershell
-.\run.ps1
-```
 
-This will:
-
-* Build Docker images
-* Start all services
-* Wait until dashboard is ready
-* Automatically open browser at:
-
-```
-http://localhost:8501
-```
-
----
-
-# 🚀 Quick Start (Manual)
+# 🚀 Quick Start 
 
 ```bash
 docker compose up --build -d
