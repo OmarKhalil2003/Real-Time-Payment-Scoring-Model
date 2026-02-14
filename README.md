@@ -111,7 +111,7 @@ docker compose up --build -d
 ```
 
 Or to build and watch logs: \
-_i recommend using this to watch logs and when the app-1 logs transactions) appear it's time to open the UI_ 
+_i recommend using this to watch logs and when the app-1 logs (transactions) appear it's time to open the UI_ 
 
 ```bash
 docker compose up --build
