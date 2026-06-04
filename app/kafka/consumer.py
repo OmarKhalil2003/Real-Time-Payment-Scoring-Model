@@ -23,9 +23,25 @@ class KafkaConsumerClient:
         if msg is None:
             return None
         if msg.error():
-            raise Exception(msg.error())
+            import logging
+            logging.getLogger("consumer").error(f"Kafka error: {msg.error()}")
+            return None
 
-        return json.loads(msg.value().decode("utf-8"))
+        try:
+            return json.loads(msg.value().decode("utf-8"))
+        except json.JSONDecodeError as e:
+            import logging
+            logging.getLogger("consumer").error(f"Failed to decode message: {e}. Sending raw to DLQ.")
+            try:
+                self.producer.produce(self.dlq_topic, value=msg.value())
+                self.producer.flush()
+            except Exception as dlq_e:
+                logging.getLogger("consumer").error(f"Failed to DLQ malformed message: {dlq_e}")
+            return None
+        except Exception as e:
+            import logging
+            logging.getLogger("consumer").error(f"Unexpected error decoding message: {e}")
+            return None
 
     def send_to_dlq(self, message):
         self.producer.produce(

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.mysql import insert
 from app.database.connection import SessionLocal
 from app.database.models import ScoredTransaction
 
@@ -32,20 +33,18 @@ class TransactionRepository:
 
         session = SessionLocal()
         try:
-            session.bulk_insert_mappings(
-                ScoredTransaction,
-                cls._buffer
-            )
+            # Use INSERT IGNORE to prevent batch failure on duplicate transaction_id
+            stmt = insert(ScoredTransaction).values(cls._buffer).prefix_with("IGNORE")
+            session.execute(stmt)
             session.commit()
-            cls._buffer.clear()
-        except IntegrityError:
-            # Ignore duplicates safely
+        except Exception:
             session.rollback()
         finally:
+            cls._buffer.clear()
             session.close()
 
-    @staticmethod
-    def count_recent_transactions(customer_id: str, seconds: int = 60):
+    @classmethod
+    def count_recent_transactions(cls, customer_id: str, seconds: int = 60):
         """
         Count transactions for a customer in the last X seconds.
         Optimized query using COUNT(*) with proper filtering.
@@ -55,14 +54,21 @@ class TransactionRepository:
         try:
             time_threshold = datetime.utcnow() - timedelta(seconds=seconds)
 
-            count = (
+            db_count = (
                 session.query(func.count())
                 .select_from(ScoredTransaction)
                 .filter(ScoredTransaction.customer_id == customer_id)
                 .filter(ScoredTransaction.created_at >= time_threshold)
                 .scalar()
             )
+            db_count = db_count or 0
 
-            return count or 0
+            # Count un-flushed transactions in the buffer for this customer
+            buffer_count = sum(
+                1 for tx in cls._buffer
+                if tx["customer_id"] == customer_id
+            )
+
+            return db_count + buffer_count
         finally:
             session.close()

@@ -4,6 +4,7 @@ from sqlalchemy import (
     Float,
     String,
     DateTime,
+    Text,
     UniqueConstraint,
     Index
 )
@@ -37,6 +38,7 @@ class ScoredTransaction(Base):
     customer_id = Column(String(100), nullable=False)
 
     amount = Column(Float)
+    country = Column(String(50), nullable=True)
 
     score = Column(Float, nullable=False)
     prediction = Column(Integer, nullable=False)
@@ -44,6 +46,11 @@ class ScoredTransaction(Base):
 
     # Explainability field
     reason = Column(String(100), nullable=True)
+
+    # MCP enrichment fields
+    mcp_risk_score = Column(Float, nullable=True)
+    triggered_rules = Column(String(500), nullable=True)
+    explanation = Column(Text, nullable=True)
 
     # When transaction was inserted (event time)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
