@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: operational
+    schema: public
+    tables:
+      - name: scored_transactions
+      - name: operational_transactions

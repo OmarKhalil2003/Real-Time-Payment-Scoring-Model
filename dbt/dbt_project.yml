@@ -1,0 +1,36 @@
+name: 'fraud_platform'
+version: '1.0.0'
+config-version: 2
+
+profile: 'fraud_platform'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  fraud_platform:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: warehouse
+      +materialized: table
+
+seeds:
+  fraud_platform:
+    seed_countries:
+      +column_types:
+        country_code: text
+        country_name: text

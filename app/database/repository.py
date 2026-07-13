@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.dialects.mysql import insert
+from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.database.connection import SessionLocal
+from app.database.connection import engine
 from app.database.models import ScoredTransaction
 
 BATCH_SIZE = 200
@@ -26,15 +27,28 @@ class TransactionRepository:
     @classmethod
     def flush(cls):
         """
-        Bulk insert buffered transactions into MySQL.
+        Bulk insert buffered transactions into the database.
         """
         if not cls._buffer:
             return
 
         session = SessionLocal()
         try:
-            # Use INSERT IGNORE to prevent batch failure on duplicate transaction_id
-            stmt = insert(ScoredTransaction).values(cls._buffer).prefix_with("IGNORE")
+            dialect = engine.dialect.name
+
+            # Idempotency: ignore duplicates on transaction_id.
+            if dialect == "postgresql":
+                stmt = (
+                    pg_insert(ScoredTransaction)
+                    .values(cls._buffer)
+                    .on_conflict_do_nothing(index_elements=["transaction_id"])
+                )
+            elif dialect in {"mysql", "mariadb"}:
+                # MySQL: INSERT IGNORE
+                stmt = insert(ScoredTransaction).values(cls._buffer).prefix_with("IGNORE")
+            else:
+                # Generic fallback: normal insert (may raise on duplicates depending on DB).
+                stmt = insert(ScoredTransaction).values(cls._buffer)
             session.execute(stmt)
             session.commit()
         except Exception:

@@ -1,326 +1,133 @@
+# Production-Grade Real-Time Payment Analytics & Fraud Detection Platform
 
+A full-stack **Data Engineering + ML** portfolio project simulating a fintech payment infrastructure with real-time streaming, batch processing, data lake, warehouse, orchestration, and monitoring.
 
----
-
-# 💳 Real-Time Payment Fraud Scoring System
-
-A fully containerized, autonomous, real-time fraud detection pipeline built using Kafka, Machine Learning, MySQL, and Streamlit.
-
-This system simulates live payment traffic, applies ML-based fraud scoring combined with rule-based velocity detection, persists results efficiently using batch operations, and exposes real-time operational monitoring via an analyst-oriented dashboard.
-
----
-
-# 🎯 Objectives
-
-* Real-time transaction ingestion using Kafka
-* Machine Learning–based fraud probability scoring
-* Rule-based behavioral fraud detection (velocity monitoring)
-* High-performance batch persistence into MySQL
-* Analyst-ready monitoring dashboard with export capabilities
-* Fully containerized, reproducible deployment
-* Autonomous startup with zero manual setup
-
----
-
-# 🏗 System Architecture
+## Architecture
 
 ```
-Docker Compose
-│
-├── Zookeeper
-├── Kafka
-│     └── Topic: payments (auto-created)
-│
-├── MySQL (persistent Docker volume)
-│
-├── Producer (Dockerized)
-│     └── Continuously generates simulated payment transactions
-│
-├── Consumer App (Dockerized)
-│     ├── Auto-trains ML model if not found
-│     ├── Applies ML fraud scoring
-│     ├── Applies velocity-based fraud rule
-│     ├── Classifies status (APPROVED / REVIEW / DECLINED)
-│     ├── Stores fraud reason (ML_MODEL / VELOCITY_RULE)
-│     ├── Batch inserts scored results
-│     ├── Handles Dead Letter Queue (DLQ)
-│     └── Enforces idempotency via unique constraints
-│
-└── Streamlit Dashboard (Dockerized)
-      ├── System health panel
-      ├── Throughput monitoring
-      ├── Fraud source breakdown
-      ├── Velocity alert monitoring
-      ├── High-risk transaction inspection
-      ├── Customer investigation panel
-      └── CSV export for analysts
+Producer → Kafka → Spark Streaming → MinIO (raw/processed/curated)
+                 ↘ Fraud Scoring App → PostgreSQL
+                                           ↓
+                                      Airflow → dbt → Star Schema
+                                           ↓
+                              FastAPI + Streamlit + Grafana
 ```
 
----
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
 
-# ⚙️ Tech Stack
+## Tech Stack
 
-* Python 3.10
-* Apache Kafka
-* MySQL 8
-* SQLAlchemy ORM
-* Scikit-learn (RandomForestClassifier)
-* Streamlit
-* Docker & Docker Compose
-* Pytest
+| Category | Tools |
+|----------|-------|
+| Streaming | Apache Kafka |
+| Stream Processing | PySpark Structured Streaming |
+| Database | PostgreSQL |
+| Data Lake | MinIO, Parquet, Delta Lake |
+| Warehouse | PostgreSQL Star Schema |
+| Transformation | dbt |
+| Orchestration | Apache Airflow |
+| ML | XGBoost |
+| API | FastAPI |
+| Validation | Great Expectations |
+| Monitoring | Prometheus, Grafana |
+| Dashboard | Streamlit |
+| CI/CD | GitHub Actions |
+| Containers | Docker Compose |
 
----
-
-# 📂 Project Structure
-
-```
-app/
-  config/
-  database/
-    connection.py
-    models.py
-    repository.py
-  kafka/
-  model/
-  services/
-    scoring_service.py
-  main.py
-
-scripts/
-  sample_producer.py
-  train_dummy_model.py
-
-tests/
-  test_predictor.py
-  test_status_logic.py
-
-dashboard.py
-docker-compose.yml
-Dockerfile
-requirements.txt
-```
-
----
-
-# 🚀 Quick Start
-
-Clone the repository and run:
+## Quick Start
 
 ```bash
 docker compose up --build -d
 ```
 
-Or to build and watch logs: \
-_i recommend using this to watch logs and when the app-1 logs (transactions) appear it's time to open the UI_ 
+Wait ~2 minutes for all services to initialize, then open:
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| **Fraud Dashboard** | http://localhost:8501 | — |
+| **FastAPI Docs** | http://localhost:8000/docs | — |
+| **Airflow** | http://localhost:8080 | admin / admin |
+| **Grafana** | http://localhost:3000 | admin / admin |
+| **MinIO Console** | http://localhost:9001 | minio / minio12345 |
+| **Prometheus** | http://localhost:9090 | — |
+
+## What Runs Automatically
+
+- Kafka topics: `payments`, `refunds`, `alerts` (+ DLQ topics)
+- MinIO buckets: `raw`, `processed`, `curated` lake zones
+- PostgreSQL schemas: operational OLTP + warehouse star schema
+- Payment event generator (purchases, refunds, failed payments, chargebacks)
+- Spark Structured Streaming (validate, dedup, watermark, lake writes)
+- Real-time fraud scoring (ML + MCP rules + velocity detection)
+- XGBoost model auto-training if artifacts missing
+- Airflow DAG for dbt, Great Expectations, model retraining
+
+## API Usage
 
 ```bash
-docker compose up --build
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transaction_id": "tx-001",
+    "customer_id": "CUST_00001",
+    "amount": 150.00,
+    "country": "Egypt",
+    "feature_1": 0.3,
+    "feature_2": 0.2,
+    "feature_3": 0.1
+  }'
 ```
 
-Then open:
-
-```
-http://localhost:8501
-```
-
-No manual setup required:
-
-* No Kafka topic creation
-* No manual database schema creation
-* No manual model training
-* No local virtual environment
-
-
----
-
-# 🧠 Autonomous Capabilities
-
-At startup, the system automatically:
-
-* Creates Kafka topic (`payments`)
-* Waits for MySQL readiness
-* Creates database schema if not present
-* Trains ML model if missing
-* Starts continuous transaction producer
-* Starts fraud scoring consumer
-* Applies batch insert optimization
-* Launches monitoring dashboard
-* Applies retry logic and DLQ handling
-
----
-
-# 🗄 Updated MySQL Schema
-
-```sql
-CREATE TABLE scored_transactions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    transaction_id VARCHAR(100) NOT NULL UNIQUE,
-    customer_id VARCHAR(100) NOT NULL,
-    amount FLOAT,
-    score FLOAT,
-    prediction INT,
-    status VARCHAR(20),
-    reason VARCHAR(100),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    processed_at DATETIME NULL,
-    
-    INDEX idx_customer_created (customer_id, created_at),
-    INDEX idx_status (status)
-);
-```
-
-### Schema Highlights
-
-* `reason` → explains fraud source (`ML_MODEL` / `VELOCITY_RULE`)
-* Composite index `(customer_id, created_at)` → optimized for velocity rule
-* Indexed `status` → fast dashboard aggregation
-* Unique constraint on `transaction_id` → idempotent processing
-
----
-
-# 📊 Fraud Detection Logic
-
-## 1️⃣ Machine Learning Layer
-
-* RandomForest classifier
-* Outputs fraud probability score
-* Threshold-based classification:
-
-  * `>= 0.85` → DECLINED
-  * `>= 0.65` → REVIEW
-  * else → APPROVED
-
----
-
-## 2️⃣ Velocity Rule Layer
-
-* Counts transactions per customer over last 60 seconds
-* Triggers when threshold exceeded (e.g., 12 tx / 60 sec)
-* Slightly increases risk score
-* Overrides classification when burst activity detected
-* Sets `reason = VELOCITY_RULE`
-
-This hybrid architecture balances predictive modeling with behavioral anomaly detection.
-
----
-
-# 📈 Dashboard Features
-
-## 🔹 System Health
-
-* Lifetime status counters
-* Transactions per minute
-* Fraud rate monitoring
-* Fraud spike alert detection
-
-## 🔹 Fraud Intelligence
-
-* Fraud source breakdown (ML vs Velocity)
-* Velocity burst detection table
-* High-risk transactions (time window configurable)
-* Top risk customers (lifetime aggregation)
-
-## 🔹 Customer Investigation
-
-* Customer lifetime transaction count
-* Fraud count
-* Average risk score
-* Full transaction history per customer
-
-## 🔹 Analyst Export Features
-
-Downloadable CSV exports:
-
-* Fraud source breakdown
-* Top risk customers
-* High-risk transactions
-* Velocity alerts
-* Customer transactions
-* ✅ Full dataset export (with optional row limit + status filter)
-
----
-
-# ⚡ Performance Optimizations
-
-* Indexed MySQL columns
-* Composite index for velocity rule
-* Batch inserts via `bulk_insert_mappings`
-* Producer-side batching (`linger.ms`, `batch.num.messages`)
-* Persistent MySQL Docker volume
-* SQLAlchemy connection pooling (`pool_pre_ping`)
-* TTL-based caching for lifetime metrics
-* Idempotent transaction constraint
-* Structured logging
-
----
-
-# 🔒 Reliability & Safety
-
-* Dead Letter Queue (DLQ)
-* Unique transaction ID constraint
-* Pydantic schema validation
-* Retry logic for database readiness
-* Automatic ML training fallback
-* Kafka consumer group coordination
-
----
-
-# 🧪 Running Tests
+## dbt (Manual)
 
 ```bash
-pytest
+cd dbt
+dbt deps --profiles-dir .
+dbt seed --profiles-dir .
+dbt run --profiles-dir .
+dbt test --profiles-dir .
 ```
 
-Expected output:
+Or trigger the `fraud_platform_pipeline` DAG in Airflow.
+
+## Project Structure
 
 ```
-2 passed
+producer/          Payment event generator
+app/               Fraud scoring consumer + FastAPI
+spark/             Structured Streaming jobs
+dbt/               Warehouse transformations (staging → marts)
+airflow/           Orchestration DAGs
+postgres/          Database init scripts
+minio/             Lake bucket initialization
+ml/                XGBoost model training
+great_expectations/ Data validation
+monitoring/        Prometheus + Grafana
+dashboard.py       Streamlit analyst console
+docs/              Architecture documentation
+tests/             Unit + integration tests
 ```
 
-Tests validate:
+## Running Tests
 
-* ML predictor correctness
-* Fraud status classification logic
+```bash
+pip install -r requirements.txt
+python -m pytest -q
+```
 
----
+## Skills Demonstrated
 
-# 📦 Expected Deliverables 
+- Python, Advanced SQL, PostgreSQL
+- Apache Kafka, PySpark Structured Streaming
+- Delta Lake, Parquet, Data Lakes
+- Data Warehousing, Star Schema, dbt
+- ETL/ELT, Airflow orchestration
+- XGBoost ML integration, FastAPI
+- Great Expectations data validation
+- Prometheus, Grafana monitoring
+- Docker, GitHub Actions CI/CD
+- Distributed systems, production data engineering
 
-This repository includes:
+## Author
 
-* Complete GitHub codebase
-* Fully Dockerized reproducible environment
-* README documentation with setup instructions
-* Sample Kafka transaction generator
-* MySQL schema definition
-* Real-time ML fraud scoring implementation
-* Monitoring dashboard
-* CSV export capabilities
-* Unit tests
-
----
-
-# 🏁 System Summary
-
-| Capability                     | Included |
-| ------------------------------ | -------- |
-| Fully Dockerized               | ✅        |
-| Autonomous Startup             | ✅        |
-| Real-Time Streaming Pipeline   | ✅        |
-| ML-Based Fraud Scoring         | ✅        |
-| Velocity-Based Fraud Detection | ✅        |
-| Fraud Source Attribution       | ✅        |
-| Persistent Database Storage    | ✅        |
-| Analyst CSV Exports            | ✅        |
-| Live Operational Monitoring    | ✅        |
-| Unit Testing                   | ✅        |
-
----
-
-# 👤 Author
-
-Omar Khalil \
-[omark8977@gmail.com](mailto:omark8977@gmail.com)
-
----
-
+Omar Khalil — [omark8977@gmail.com](mailto:omark8977@gmail.com)

@@ -4,6 +4,7 @@ import os
 import asyncio
 import subprocess
 from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 
 from app.config.logging_config import setup_logging
 from app.config.settings import settings
@@ -16,18 +17,21 @@ from app.model.predictor import Predictor
 from app.services.scoring_service import ScoringService
 
 
-def wait_for_mysql(max_retries=30, delay=5):
+def wait_for_database(max_retries=30, delay=5):
     logger = logging.getLogger("startup")
     for attempt in range(max_retries):
         try:
-            engine.connect()
-            logger.info("MySQL is ready.")
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            logger.info("Database is ready.")
             return
         except OperationalError:
-            logger.warning(f"MySQL not ready. Retry {attempt + 1}/{max_retries}...")
+            logger.warning(
+                f"Database not ready. Retry {attempt + 1}/{max_retries}..."
+            )
             time.sleep(delay)
 
-    raise Exception("MySQL did not become ready in time.")
+    raise Exception("Database did not become ready in time.")
 
 
 def ensure_model_exists(logger):
@@ -47,8 +51,8 @@ async def main_async():
     setup_logging()
     logger = logging.getLogger("payment-scoring")
 
-    # Wait for MySQL readiness (sync, runs before async work)
-    wait_for_mysql()
+    # Wait for DB readiness (sync, runs before async work)
+    wait_for_database()
 
     # Auto-train model if missing
     ensure_model_exists(logger)

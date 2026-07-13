@@ -13,13 +13,29 @@ from app.config.settings import settings
 # Database Connection
 # -----------------------------------
 
-DATABASE_URL = (
-    f"mysql+pymysql://{settings.MYSQL_USER}:"
-    f"{settings.MYSQL_PASSWORD}@{settings.MYSQL_HOST}:"
-    f"{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}"
-)
+def _build_database_url() -> str:
+    if settings.DATABASE_URL:
+        return settings.DATABASE_URL
+
+    # Prefer Postgres if configured
+    if settings.POSTGRES_HOST:
+        return (
+            f"postgresql+psycopg2://{settings.POSTGRES_USER}:"
+            f"{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:"
+            f"{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+        )
+
+    return (
+        f"mysql+pymysql://{settings.MYSQL_USER}:"
+        f"{settings.MYSQL_PASSWORD}@{settings.MYSQL_HOST}:"
+        f"{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}"
+    )
+
+
+DATABASE_URL = _build_database_url()
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+dialect = engine.dialect.name
 
 st.set_page_config(
     page_title="Fraud Monitoring Console — MCP Enhanced",
@@ -218,11 +234,18 @@ def load_lifetime_totals():
 
 
 def load_throughput():
-    query = """
-        SELECT COUNT(*) as tx_last_min
-        FROM scored_transactions
-        WHERE created_at >= NOW() - INTERVAL 1 MINUTE
-    """
+    if dialect == "postgresql":
+        query = """
+            SELECT COUNT(*) as tx_last_min
+            FROM scored_transactions
+            WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '1 minute')
+        """
+    else:
+        query = """
+            SELECT COUNT(*) as tx_last_min
+            FROM scored_transactions
+            WHERE created_at >= NOW() - INTERVAL 1 MINUTE
+        """
     return pd.read_sql(query, engine)
 
 
@@ -236,27 +259,48 @@ def load_fraud_source_breakdown():
 
 
 def load_latency_metrics():
-    query = """
-        SELECT 
-            AVG(TIMESTAMPDIFF(MICROSECOND, processed_at, created_at))/1000 as avg_db_delay_ms,
-            MAX(TIMESTAMPDIFF(MICROSECOND, processed_at, created_at))/1000 as max_db_delay_ms
-        FROM scored_transactions
-        WHERE processed_at IS NOT NULL
-    """
+    if dialect == "postgresql":
+        query = """
+            SELECT
+                AVG(EXTRACT(EPOCH FROM (processed_at - created_at)) * 1000) as avg_db_delay_ms,
+                MAX(EXTRACT(EPOCH FROM (processed_at - created_at)) * 1000) as max_db_delay_ms
+            FROM scored_transactions
+            WHERE processed_at IS NOT NULL
+        """
+    else:
+        query = """
+            SELECT 
+                AVG(TIMESTAMPDIFF(MICROSECOND, processed_at, created_at))/1000 as avg_db_delay_ms,
+                MAX(TIMESTAMPDIFF(MICROSECOND, processed_at, created_at))/1000 as max_db_delay_ms
+            FROM scored_transactions
+            WHERE processed_at IS NOT NULL
+        """
     return pd.read_sql(query, engine)
 
 
 def load_recent_high_risk(window):
-    query = f"""
-        SELECT transaction_id, customer_id, amount, country, score,
-               mcp_risk_score, triggered_rules, explanation, status, reason,
-               created_at
-        FROM scored_transactions
-        WHERE created_at >= NOW() - INTERVAL {window} MINUTE
-        AND score >= 0.65
-        ORDER BY score DESC
-        LIMIT 50
-    """
+    if dialect == "postgresql":
+        query = f"""
+            SELECT transaction_id, customer_id, amount, country, score,
+                   mcp_risk_score, triggered_rules, explanation, status, reason,
+                   created_at
+            FROM scored_transactions
+            WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '{int(window)} minutes')
+            AND score >= 0.65
+            ORDER BY score DESC
+            LIMIT 50
+        """
+    else:
+        query = f"""
+            SELECT transaction_id, customer_id, amount, country, score,
+                   mcp_risk_score, triggered_rules, explanation, status, reason,
+                   created_at
+            FROM scored_transactions
+            WHERE created_at >= NOW() - INTERVAL {int(window)} MINUTE
+            AND score >= 0.65
+            ORDER BY score DESC
+            LIMIT 50
+        """
     return pd.read_sql(query, engine)
 
 
@@ -277,14 +321,24 @@ def load_top_customers():
 
 
 def load_velocity_suspects(window):
-    query = f"""
-        SELECT customer_id, COUNT(*) as tx_count
-        FROM scored_transactions
-        WHERE created_at >= NOW() - INTERVAL {window} MINUTE
-        GROUP BY customer_id
-        HAVING tx_count >= 8
-        ORDER BY tx_count DESC
-    """
+    if dialect == "postgresql":
+        query = f"""
+            SELECT customer_id, COUNT(*) as tx_count
+            FROM scored_transactions
+            WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '{int(window)} minutes')
+            GROUP BY customer_id
+            HAVING COUNT(*) >= 8
+            ORDER BY tx_count DESC
+        """
+    else:
+        query = f"""
+            SELECT customer_id, COUNT(*) as tx_count
+            FROM scored_transactions
+            WHERE created_at >= NOW() - INTERVAL {int(window)} MINUTE
+            GROUP BY customer_id
+            HAVING tx_count >= 8
+            ORDER BY tx_count DESC
+        """
     return pd.read_sql(query, engine)
 
 
@@ -330,32 +384,57 @@ def load_country_risk_distribution():
 
 def load_mcp_vs_ml_comparison():
     """Compare ML scores vs MCP risk scores for recent transactions."""
-    query = f"""
-        SELECT score as final_score,
-               mcp_risk_score,
-               status, reason
-        FROM scored_transactions
-        WHERE created_at >= NOW() - INTERVAL {time_window} MINUTE
-        AND mcp_risk_score IS NOT NULL
-        ORDER BY created_at DESC
-        LIMIT 500
-    """
+    if dialect == "postgresql":
+        query = f"""
+            SELECT score as final_score,
+                   mcp_risk_score,
+                   status, reason
+            FROM scored_transactions
+            WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '{int(time_window)} minutes')
+            AND mcp_risk_score IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 500
+        """
+    else:
+        query = f"""
+            SELECT score as final_score,
+                   mcp_risk_score,
+                   status, reason
+            FROM scored_transactions
+            WHERE created_at >= NOW() - INTERVAL {int(time_window)} MINUTE
+            AND mcp_risk_score IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 500
+        """
     return pd.read_sql(query, engine)
 
 
 def load_recent_explanations(window, limit=10):
     """Load most recent MCP-generated fraud explanations."""
-    query = f"""
-        SELECT transaction_id, customer_id, amount, country,
-               score, mcp_risk_score, triggered_rules,
-               explanation, status, created_at
-        FROM scored_transactions
-        WHERE created_at >= NOW() - INTERVAL {window} MINUTE
-        AND explanation IS NOT NULL
-        AND explanation != ''
-        ORDER BY score DESC
-        LIMIT {limit}
-    """
+    if dialect == "postgresql":
+        query = f"""
+            SELECT transaction_id, customer_id, amount, country,
+                   score, mcp_risk_score, triggered_rules,
+                   explanation, status, created_at
+            FROM scored_transactions
+            WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '{int(window)} minutes')
+            AND explanation IS NOT NULL
+            AND explanation != ''
+            ORDER BY score DESC
+            LIMIT {int(limit)}
+        """
+    else:
+        query = f"""
+            SELECT transaction_id, customer_id, amount, country,
+                   score, mcp_risk_score, triggered_rules,
+                   explanation, status, created_at
+            FROM scored_transactions
+            WHERE created_at >= NOW() - INTERVAL {int(window)} MINUTE
+            AND explanation IS NOT NULL
+            AND explanation != ''
+            ORDER BY score DESC
+            LIMIT {int(limit)}
+        """
     return pd.read_sql(query, engine)
 
 
